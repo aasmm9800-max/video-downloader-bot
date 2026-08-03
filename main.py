@@ -13,13 +13,11 @@ class DummyServer(BaseHTTPRequestHandler):
         self.wfile.write("البوت يعمل بنجاح!".encode('utf-8'))
 
 def run_dummy_server():
-    # Render يرسل رقم المنفذ تلقائياً في المتغير PORT
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), DummyServer)
     print(f"السيرفر الوهمي يعمل الآن على المنفذ: {port}")
     server.serve_forever()
 
-# تشغيل السيرفر الوهمي في الخلفية (Thread) حتى لا يعطل البوت
 Thread(target=run_dummy_server, daemon=True).start()
 # --------------------------------------------
 
@@ -43,17 +41,28 @@ def handle_message(message):
 
     msg = bot.reply_to(message, "جاري معالجة الرابط وتحميل الفيديو... انتظر لحظة ⏳")
 
-    # إعدادات أداة التحميل لتنزيل أفضل جودة بصيغة mp4 وبحجم مناسب للتليجرام
+    # خوارزمية ذكية لتحويل روابط يوتيوب عبر سيرفر وسيط لتجنب حظر الـ IP الخاص بـ Render
+    if "youtube.com" in url or "youtu.be" in url:
+        try:
+            video_id = None
+            if "youtu.be/" in url:
+                video_id = url.split("youtu.be/")[1].split("?")[0].split("&")[0]
+            elif "shorts/" in url:
+                video_id = url.split("shorts/")[1].split("?")[0].split("&")[0]
+            elif "v=" in url:
+                video_id = url.split("v=")[1].split("&")[0].split("?")[0]
+            
+            # إذا تم العثور على آي دي الفيديو، يعاد صياغته ليعبر عبر السيرفر البديل المقاوم للحظر
+            if video_id:
+                url = f"https://yewtu.be/watch?v={video_id}"
+        except Exception:
+            pass # في حال حدوث خطأ غير متوقع في التحليل، يستمر بالرابط الأصلي كمحاولة أخيرة
+
     ydl_opts = {
         'format': 'best[ext=mp4]/best',
         'outtmpl': '%(id)s.%(ext)s',
         'quiet': True,
         'no_warnings': True,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['tv', 'web_embedded']  # التنكر كشاشة ذكية وفيديو مدمج لتجاوز الحظر الصارم
-            }
-        }
     }
 
     try:

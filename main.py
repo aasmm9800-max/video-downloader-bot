@@ -1,6 +1,7 @@
 import os
 import telebot
 import yt_dlp
+import requests
 from threading import Thread
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -15,7 +16,6 @@ class DummyServer(BaseHTTPRequestHandler):
 def run_dummy_server():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), DummyServer)
-    print(f"السيرفر الوهمي يعمل الآن على المنفذ: {port}")
     server.serve_forever()
 
 Thread(target=run_dummy_server, daemon=True).start()
@@ -41,23 +41,47 @@ def handle_message(message):
 
     msg = bot.reply_to(message, "جاري معالجة الرابط وتحميل الفيديو... انتظر لحظة ⏳")
 
-    # خوارزمية ذكية لتحويل روابط يوتيوب عبر سيرفر وسيط لتجنب حظر الـ IP الخاص بـ Render
+    # معالجة خاصة وصارمة لروابط يوتيوب لتفادي حظر سيرفر Render
     if "youtube.com" in url or "youtu.be" in url:
         try:
-            video_id = None
-            if "youtu.be/" in url:
-                video_id = url.split("youtu.be/")[1].split("?")[0].split("&")[0]
-            elif "shorts/" in url:
-                video_id = url.split("shorts/")[1].split("?")[0].split("&")[0]
-            elif "v=" in url:
-                video_id = url.split("v=")[1].split("&")[0].split("?")[0]
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "url": url,
+                "videoQuality": "480",  # جودة متوازنة لضمان عدم تخطي حد الـ 50 ميجا الخاص بتليجرام
+                "downloadMode": "video"
+            }
             
-            # إذا تم العثور على آي دي الفيديو، يعاد صياغته ليعبر عبر السيرفر البديل المقاوم للحظر
-            if video_id:
-                url = f"https://yewtu.be/watch?v={video_id}"
-        except Exception:
-            pass # في حال حدوث خطأ غير متوقع في التحليل، يستمر بالرابط الأصلي كمحاولة أخيرة
+            # استدعاء منصة العبور الخارجي لتخطي الحظر
+            api_url = "https://api.cobalt.tools/api/json"
+            response = requests.post(api_url, json=payload, headers=headers, timeout=15)
+            response_data = response.json()
 
+            if "url" in response_data:
+                video_download_url = response_data["url"]
+                filename = "youtube_video.mp4"
+                
+                # سحب الفيديو إلى السيرفر مؤقتاً لإرساله كملف أصيل
+                video_file = requests.get(video_download_url, stream=True)
+                with open(filename, 'wb') as f:
+                    for chunk in video_file.iter_content(chunk_size=1024*1024):
+                        if chunk:
+                            f.write(chunk)
+                
+                with open(filename, 'rb') as video:
+                    bot.send_video(message.chat.id, video, reply_to_message_id=message.id)
+                
+                if os.path.exists(filename):
+                    os.remove(filename)
+                    
+                bot.delete_message(message.chat.id, msg.message_id)
+                return  # إنهاء العملية بنجاح لليوتيوب والتحول للانتظار التالي
+        except Exception as e:
+            print(f"فشلت الخطة أ لليوتيوب، سيتم الانتقال الاحتياطي: {e}")
+
+    # الخطة العامة لبقية المنصات (تيك توك، انستقرام، إلخ)
     ydl_opts = {
         'format': 'best[ext=mp4]/best',
         'outtmpl': '%(id)s.%(ext)s',

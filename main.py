@@ -43,7 +43,7 @@ def handle_message(message):
 
     msg = bot.reply_to(message, "جاري معالجة الرابط وتحميل الفيديو... انتظر لحظة ⏳")
 
-# إعدادات أداة التحميل لتنزيل أفضل جودة بصيغة mp4 وبحجم مناسب للتليجرام
+    # إعدادات أداة التحميل لتنزيل أفضل جودة بصيغة mp4 وبحجم مناسب للتليجرام
     ydl_opts = {
         'format': 'best[ext=mp4]/best',
         'outtmpl': '%(id)s.%(ext)s',
@@ -51,7 +51,7 @@ def handle_message(message):
         'no_warnings': True,
         'extractor_args': {
             'youtube': {
-                'player_client': ['ios', 'android']  # توجيه الطلب كأنه من تطبيق جوال لتخطي الحظر
+                'player_client': ['tv', 'web_embedded']  # التنكر كشاشة ذكية وفيديو مدمج لتجاوز الحظر الصارم
             }
         }
     }

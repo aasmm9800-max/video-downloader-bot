@@ -14,7 +14,7 @@ class DummyServer(BaseHTTPRequestHandler):
         self.wfile.write("البوت يعمل بنجاح!".encode('utf-8'))
 
 def run_dummy_server():
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8080)) 
     server = HTTPServer(("0.0.0.0", port), DummyServer)
     server.serve_forever()
 
